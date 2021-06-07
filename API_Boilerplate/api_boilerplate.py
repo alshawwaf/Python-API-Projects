@@ -18,7 +18,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-u", "--username", default="admin")
     parser.add_argument("-p", "--password", default="vpn123")
-    parser.add_argument("-m", "--management", default="192.168.44.231")
+    parser.add_argument("-m", "--management", default="192.168.2.10")
     parser.add_argument("-d", "--domain", default="")
     parser.add_argument("-o",
                         "--outfile",
