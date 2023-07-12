@@ -1,0 +1,8 @@
+network,description
+121.188.123.0/24,New York Data Center
+122.188.232.0/24,Chicago Data Center
+132.188.111.0/24,Florida Data Center
+133.189.211.0/24,London Data Center
+231.188.123.0/24,Berlin Data Center
+221.152.111.0/24,Backup 1 Data Center
+213.151.222.0/24,Backup 2 Data Center
