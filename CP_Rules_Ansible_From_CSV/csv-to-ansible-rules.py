@@ -3,8 +3,8 @@
 This script reads rules from a CSV file and creates an ansible playbook to add those rules.
 
 Source,Destination,Protocol(s),Rule Documentation,Owner,Notes,Description
-g.SESF,	g.SESF,	IP,	JIRA 1234,	GNS,	Approved by Joey	
-Any,	Local SESF Subnet,	TCP-22,	JIRA 4321,	GNS,	Approved by Jeff,	Local SESF Subnet is the internal subnet of the SESF firewall.
+Src_objects, dedtination_object,	IP,	JIRA 1234,	Note,	Approved by James, First rule Test 
+Any,	Local SA Subnet,	TCP-80,	JIRA 4321,	Note2,	Approved by Jeff,	Local SE Subnet.
 
 python -m venv venv
 python -m pip install cp-mgmt-api-sdk
