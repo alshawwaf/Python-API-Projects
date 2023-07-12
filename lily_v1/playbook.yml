@@ -1,9 +1,0 @@
-
-- name: playbook to create Check Point Rules using Ansible
-  connection: httpapi
-  hosts: 192.168.2.10
-  gather_facts: False
-  tasks:
-    - name: Include rules tasks created from the csv file
-      import_tasks: rules.yml
-        

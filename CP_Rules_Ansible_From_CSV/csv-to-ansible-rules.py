@@ -3,9 +3,11 @@
 This script reads rules from a CSV file and creates an ansible playbook to add those rules.
 
 Source,Destination,Protocol(s),Rule Documentation,Owner,Notes,Description
-g.SESF,	g.SESF,	IP,	PIRA 3944,	GNS,	Approved by Joe Gallagher	
-Any,	Local SESF Subnet,	TCP-22,	PIRA 3944,	GNS,	Approved by Jeremy Johnston,	Local SESF Subnet is the internal subnet of the SESF firewall.
+g.SESF,	g.SESF,	IP,	JIRA 1234,	GNS,	Approved by Joey	
+Any,	Local SESF Subnet,	TCP-22,	JIRA 4321,	GNS,	Approved by Jeff,	Local SESF Subnet is the internal subnet of the SESF firewall.
 
+python -m venv venv
+python -m pip install cp-mgmt-api-sdk
 """
 
 import argparse
@@ -23,13 +25,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-u", "--username", default="admin")
     parser.add_argument("-p", "--password", default="vpn123")
-    parser.add_argument("-m", "--management", default="192.168.2.10")
+    parser.add_argument("-m", "--management", default="203.0.113.100")
     parser.add_argument("-d", "--domain", default="")
-    parser.add_argument("-l", "--package", default="SESF-SAR-Rules")
+    parser.add_argument("-l", "--package", default="SA-Rules")
     
     parser.add_argument("-i",
                         "--inputfile",
-                        default="sesf-sar-rules.csv",
+                        default="sa-rules.csv",
                         help="input file",
                         type=argparse.FileType("r"))
     parser.add_argument("-o",
