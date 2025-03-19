@@ -13,8 +13,6 @@ import argparse
 import logging
 import sys
 from colorama import Fore, Back, Style
-from time import sleep
-from tqdm import tqdm
 from cpapi import APIClient, APIClientArgs
 
 # logging.basicConfig(
