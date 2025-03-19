@@ -10,13 +10,13 @@ python -m pip install colorama
 python -m pip install cp-mgmt-api-sdk
 """
 import argparse
-import csv
 import logging
 import sys
 from colorama import Fore, Back, Style
+from time import sleep
+from tqdm import tqdm
 from cpapi import APIClient, APIClientArgs
 
-# uncomment the lines below to save logs to a file
 # logging.basicConfig(
 # filename="cp_se_lookup.log",
 # filemode="a",
@@ -34,7 +34,7 @@ def main():
     parser.add_argument("-p", "--password", default="Cpwins!1")
     parser.add_argument("-m", "--management", default="10.1.1.100")
     parser.add_argument("-d", "--domain", default="")
-    parser.add_argument("-c", "--cve", default="CVE-2023-31102")
+    parser.add_argument("-c", "--cve", default="")
     parser.add_argument(
         "-o",
         "--outfile",
@@ -54,10 +54,37 @@ def main():
             domain=parsed_args.domain,
         )
         if login.success:
-            log.info("login succeeded")
+            log.info(" login succeeded")
         else:
             log.error(login.error_message)
             sys.exit(1)
+
+        # Show IPS status
+        ips_status = client.api_call("show-ips-status", payload={})
+        if ips_status.success:
+            log.info(
+                Fore.LIGHTYELLOW_EX
+                + f" Installed Version: {ips_status.data['installed-version']}"
+                + Fore.RESET
+            )
+            log.info(
+                Fore.LIGHTYELLOW_EX
+                + f" Installed Version Creation Time: {ips_status.data['installed-version-creation-time']}"
+                + Fore.RESET
+            )
+            log.info(
+                Fore.LIGHTYELLOW_EX
+                + f" Update Available: {ips_status.data['update-available']}"
+                + Fore.RESET
+            )
+            if ips_status.data["update-available"] is True:
+                log.warning(
+                    Fore.RED
+                    + " An update is available, consider updating your IPS database"
+                    + Fore.RESET
+                )
+        else:
+            log.error(ips_status.error_message)
 
         # Show IPS Protections, we have over 16K protections, we need to pull every 500 protections in each API call
         protections_list = []
@@ -70,23 +97,9 @@ def main():
             log.error(Fore.RED + " Please Provide the CVE number")
             sys.exit(1)
 
-        # Show IPS status
-        ips_status = client.api_call("show-ips-status", payload={})
-        if ips_status.success:
-            log.info(f"Installed Version: {ips_status.data['installed-version']}")
-            log.info(
-                f"Installed Version Creation Time: {ips_status.data['installed-version-creation-time']}"
-            )
-            log.info(f"Update Available: {ips_status.data['update-available']}")
-            if ips_status.data["update-available"] is True:
-                log.warning(
-                    "An update is available, consider updating your IPS database"
-                )
-        else:
-            log.error(ips_status.error_message)
-
         # Pull all Threat (IPS) protections and save them in a list
         while not done:
+
             # The maximum number of objects returned by the API is 500
             threat_protections = client.api_call(
                 "show-threat-protections",
@@ -97,22 +110,26 @@ def main():
                 done = True
                 log.info(f"No protections found")
                 break
+
             if threat_protections["total"] > threat_protections["to"]:
                 offset = int(threat_protections["to"])
                 from_position = int(threat_protections["from"])
                 total = threat_protections["total"]
 
-                log.info(
-                    Fore.BLUE
-                    + f"Searching Protections from {from_position} to {offset} out of {total}"
-                    + Fore.RESET
-                )
                 # Remove the blue color style
 
             else:
                 done = True
 
             protections_list.append(threat_protections["protections"])
+
+            log.info(
+                Fore.CYAN
+                + " Pulling Protections From the Management Database ..."
+                + Fore.RESET
+            )
+
+        # sleep(random.uniform(0.01, 0.1))
 
         # Show Threat Profiles
         threat_profiles = client.api_call(
@@ -146,7 +163,40 @@ def main():
             protection, profiles
         )
 
-        print_as_table(policy_decision_per_profile, title="Activation Mode Per Profile")
+        print_as_table(policy_decision_per_profile, title="Policy Per Profile")
+
+        # Find out which gateway is assigned to which profile
+        threat_rulebase = client.api_call(
+            "show-threat-rulebase",
+            payload={
+                "name": "Standard Threat Prevention",
+                "offset": 0,
+                "limit": 20,
+                "details-level": "standard",
+                "use-object-dictionary": "false",
+                # "filter": f"{profile['name']}",
+            },
+        )
+
+        # Get the Policy Decision
+        rulebase_decision = []
+        for threat_rule in threat_rulebase.data["rulebase"]:
+            rule_number = threat_rule["rule-number"]
+            rule_action = threat_rule["action"]["name"]
+            rule_targets = []
+            for target in threat_rule["install-on"]:
+                rule_targets.append(target["name"])
+            rule = {
+                "Rule Number": rule_number,
+                "Profile": rule_action,
+                "Targets": rule_targets,
+                "Activation": policy_decision_per_profile[
+                    threat_rule["action"]["name"]
+                ],
+            }
+            rulebase_decision.append(rule)
+        for rule in rulebase_decision:
+            print_as_table(rule, title="Policy Decision")
 
 
 def match_cve_to_protection(cve, protections_list):
@@ -154,16 +204,20 @@ def match_cve_to_protection(cve, protections_list):
         for protection in protection_list:
 
             if protection.get("industry-reference") is None:
-                log.error(
+                log.debug(
                     Fore.LIGHTYELLOW_EX
-                    + f"The protection {protection['name']} does not have CVE assigned, returning None"
+                    + f" The protection {protection['name']} does not have CVE assigned, returning None"
                     + Fore.RESET
                 )
                 continue
 
             for item in protection["industry-reference"]:
                 if item == cve:
-                    log.info(Fore.RED + " Protection Matched with CVE!" + Fore.RESET)
+                    log.info(
+                        Fore.LIGHTYELLOW_EX
+                        + " Protection Matched with CVE!"
+                        + Fore.RESET
+                    )
                     log.info(
                         Fore.CYAN
                         + f" Protection Name: {protection['name']}"
@@ -196,7 +250,7 @@ def print_as_table(data, title=None):
         print("-" * (max_key_length + max_value_length + 5))
 
     # Print header
-    print(f"| {'Key':<{max_key_length}} | {'Value':<{max_value_length}} |")
+    print(f"| {'Name':<{max_key_length}} | {'Value':<{max_value_length}} |")
     print("-" * (max_key_length + max_value_length + 5))
 
     # Print data
@@ -269,7 +323,7 @@ def protection_activation_per_profile(protection, profiles):
             else False
         )
 
-        log.info(
+        log.debug(
             Fore.CYAN
             + f" Activation in the profile {profile['name']} on Performance Impact and Severity of the Protection: "
             + Fore.RED
@@ -290,7 +344,7 @@ def protection_activation_per_profile(protection, profiles):
         # To Decide the activation method (Detect/Prevent/Inactive/Ask), we check the confidence level
         if protection["confidence-level"] == "Low":
             activation_mode = profile["confidence-level-low"]
-            log.info(
+            log.debug(
                 Fore.GREEN
                 + f" Activation Mode in the profile {profile['name']} for Low Confidence Protections: "
                 + Fore.RED
@@ -300,7 +354,7 @@ def protection_activation_per_profile(protection, profiles):
             policy_decision_per_profile[profile["name"]] = activation_mode
         if protection["confidence-level"] == "Medium":
             activation_mode = profile["confidence-level-medium"]
-            log.info(
+            log.debug(
                 Fore.CYAN
                 + f" Activation Mode in the profile {profile['name']} for Medium Confidence Protections: "
                 + Fore.RED
@@ -310,7 +364,7 @@ def protection_activation_per_profile(protection, profiles):
             policy_decision_per_profile[profile["name"]] = activation_mode
         if protection["confidence-level"] == "High":
             activation_mode = profile["confidence-level-high"]
-            log.info(
+            log.debug(
                 Fore.GREEN
                 + f" Activation Mode for High Confidence Protections: "
                 + Fore.RED
